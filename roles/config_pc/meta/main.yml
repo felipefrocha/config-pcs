@@ -1,0 +1,23 @@
+galaxy_info:
+  author: Felipe Rocha
+  description: Configure and prepere personal notebook
+  company: Me
+
+  license: MIT
+
+  min_ansible_version: 2.1
+
+  platforms:
+  - name: Ubuntu
+    versions:
+    - 20.04
+
+  galaxy_tags:
+  - ubuntu
+  - initial
+  - config
+
+dependencies:
+- src: https://github.com/felipefrocha/ansible-role-ubuntu-update.git
+  version: main
+  name: ubuntu_update

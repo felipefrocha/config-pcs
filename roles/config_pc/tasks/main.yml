@@ -1,0 +1,131 @@
+---
+
+- name: Add apt signing key
+  apt_key:
+    url: "{{ item }}"
+    state: present
+  loop:
+    - https://download.docker.com/linux/ubuntu/gpg
+    - https://apt.releases.hashicorp.com/gpg
+    - https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg
+    # - https://workspaces-client-linux-public-key.s3-us-west-2.amazonaws.com/ADB332E7.asc # Linux AWS Workspace
+
+- name: Add Repositories
+  apt_repository:
+    repo: "{{ item }}"
+    state: present
+  loop:
+    - "deb [arch=amd64] https://download.docker.com/linux/ubuntu bionic stable"
+    - "deb [arch=amd64] https://apt.releases.hashicorp.com {{ansible_distribution_release}} main"
+    - "deb [arch=amd64] https://brave-browser-apt-release.s3.brave.com/ stable main"
+    - "deb [arch=amd64] http://download.virtualbox.org/virtualbox/debian {{ansible_distribution_release}}  contrib"
+    # - "deb [arch=amd64] https://d3nt0h4h6pmmc4.cloudfront.net/ubuntu bionic main" # Linux AWS Workspace
+    - ppa:obsproject/obs-studio
+
+# -------------------------
+
+- name: Get AWSCLI from url
+  get_url:
+    url: https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip
+    dest: /tmp/awscli.zip
+    mode: 0777
+
+- name: Install AWSCLI
+  ansible.builtin.:
+    src: /tmp/awscli.zip
+    dest: /usr/local/bin
+  remote_src: yes
+
+  # -----------------
+  
+- block:
+  - name: install NFS Server
+    apt:
+      pkg:
+        - nfs-common
+      state: present
+      update_cache: yes
+
+  - name: Create NFS Client folder 
+    file:
+      path: "/home/{{ ansible_user_id }}/Documents/projects"
+      state: directory
+      owner: "{{ ansible_user_id }}"
+      group: "{{ ansible_user_id }}"
+      mode: 0774
+
+  - name: Mount an NFS volume
+    ansible.posix.mount:
+      src: "192.168.15.50:/home/{{ ansible_user_id }}/Documents/projects"
+      path: "/home/{{ ansible_user_id }}/Documents/projects"
+      opts: auto,nofail,noatime,nolock,intr,tcp,actimeo=1800 #rw,sync,hard,intr
+      state: mounted
+      fstype: nfs
+
+- name: Upgrade the OS (apt-get full-upgrade)
+  apt:
+    upgrade: full
+    autoremove: yes
+    autoclean: yes
+
+- name: Install  others
+  apt:
+    pkg:
+      - obs-studio
+      - docker
+      - vault
+      - terraform
+    state: present
+    update_cache: yes
+
+- name: add group and user for docker
+  user:
+    name: "{{ ansible_user_id }}"
+    groups: docker
+    append: yes
+
+
+# - name: AutoComplete Command
+#   shell: |
+#     nomad -autocomplete-install
+#     consul -autocomplete-install || echo 'consul nao tem autocomplete'
+    
+# - name: newrelic.newrelic-infra
+#   vars:
+#     nrinfragent_os_name: Ubuntu
+#     nrinfragent_os_version: 2
+#     nrinfragent_state: latest
+#     nrinfragent_config:
+#       license_key: 4583849fbb0c7678721a1afb07ca0b7539b6NRAL
+#       log_file: /var/log/newrelic/nr-infra.log
+#       log_to_stdout: True
+
+- name: Get Oh My ZSH
+  get_url:
+    url: https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh
+    dest: /tmp/zsh_install.sh
+  mode: 0777
+
+- name: Install Oh My ZSH
+  script: /tmp/zsh_install.sh
+      
+- name: Clone Hightlight
+  ansible.builtin.git:
+    repo: "{{item.origin}}"
+    dest: "/home/{{ansible_user_id}}/.oh-my-zsh/custom/plugins/{{item.dest}}"
+    # ssh_opts: "-o StrictHostKeyChecking=no"
+  loop:
+    - { origin: https://github.com/zsh-users/zsh-syntax-highlighting.git, dest: zsh-syntax-highlighting }
+    - { origin: https://github.com/zsh-users/zsh-autosuggestions.git, dest: zsh-autosuggestions }
+    - { origin: https://github.com/romkatv/powerlevel10k.git, dest: zsh-syntax-highlighting }
+
+
+# # gitConfig
+# [user]
+# 	name = felipefrocha
+# 	email = felipefonsecarocha@gmail.com
+# 	signingkey = EF02B883DDD0228E
+# [gpg]
+# 	program = /usr/bin/gpg
+# [commit]
+# 	gpgsign = true
